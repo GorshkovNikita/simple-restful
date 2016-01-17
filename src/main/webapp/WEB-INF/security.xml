@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:oauth="http://www.springframework.org/schema/security/oauth2"
+           xmlns:sec="http://www.springframework.org/schema/security"
+           xmlns:mvc = "http://www.springframework.org/schema/mvc"
+           xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/security
+       http://www.springframework.org/schema/security/spring-security.xsd
+       http://www.springframework.org/schema/security/oauth2
+       http://www.springframework.org/schema/security/spring-security-oauth2.xsd
+        http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <!-- OAUTH2.0 АВТОРИЗАЦИЯ -->
+
+    <!-- Основные запросы:
+     1. Запрос на refresh и access tokens через пароли и логины клиента (приложения) и пользователя.
+        Как результат выдается refresh-token и access-token. С помощью последнего можно обращаться к ресурсам.
+     POST
+     http://localhost:8080/oauth/token?grant_type=password&client_id=my-trusted-client&client_secret=trust&username=user&password=password
+
+     2. Запрос на access token с помощью выданного ранее в запросе 1 refresh token.
+     POST
+     http://localhost:8080/oauth/token?grant_type=refresh_token&client_id=my-trusted-client&client_secret=trust&refresh_token=
+
+
+     3. Запрос на ресурсы с помощью access token, выданного в запросе 2.
+     GET
+     http://localhost:8080/service/users/1?access_token=
+     -->
+
+    <!-- Объявление сервера аутентификации -->
+    <http pattern="/oauth/token"
+          create-session="stateless"
+          authentication-manager-ref="clientAuthenticationManager"
+          use-expressions="true"
+          xmlns="http://www.springframework.org/schema/security"
+            >
+
+        <!-- Отключение фильтра для анонимных (неутентифицированных) запросов -->
+        <anonymous enabled="false"/>
+
+        <!-- isFullyAuthenticated обозначает, что клиент был аутентифицирован без помощи remember me -->
+        <intercept-url pattern="/oauth/token" access="isFullyAuthenticated()"/>
+
+        <http-basic entry-point-ref="clientAuthenticationEntryPoint"/>
+        <access-denied-handler ref="oauthAccessDeniedHandler"/>
+
+        <!-- Фильтр для аутентификации не через Basic Authorization header,
+            а через параметры запроса (client_id and client_secret). -->
+        <custom-filter ref="clientCredentialsTokenEndpointFilter" after="BASIC_AUTH_FILTER"/>
+
+        <!-- Отключение защиты от Сross Site Request Forgery — «Межсайтовая подделка запроса».
+            Для безопасности нужно будет включить и разобраться с ней, чтобы нельзя было отправить запрос с другого сайта.
+            Смысл в том, что при запросе добавляется хэш, известный только клиенту, пришедшему с сайта,
+            который проверяется с помощью фильтра CSRF_FILTER. -->
+        <csrf disabled="true"/>
+    </http>
+
+    <!-- Защищенные ресурсы -->
+    <!-- create-session - не дает Spring создавать сессии, тк в веб-сервисе это не нужно -->
+    <http pattern="/**"
+          create-session="never"
+          entry-point-ref="oauthAuthenticationEntryPoint"
+          access-decision-manager-ref="accessDecisionManager"
+          use-expressions="true"
+          xmlns="http://www.springframework.org/schema/security"
+            >
+
+        <!-- Отключение фильтра для анонимных (неутентифицированных) запросов -->
+        <anonymous enabled="false"/>
+
+        <intercept-url pattern="/**" access="hasRole('ROLE_USER')"/>
+
+        <!-- Фильтр, вставляемый перед фильтром PRE_AUTH_FILTER.
+            Этот фильтр занимается проверкой токенов для ограничения доступа к ресурсам. -->
+        <custom-filter ref="resourceServerFilter" before="PRE_AUTH_FILTER"/>
+
+        <access-denied-handler
+                ref="oauthAccessDeniedHandler"/>
+
+        <csrf disabled="true"/>
+    </http>
+
+    <mvc:cors>
+        <mvc:mapping path="/**" allowed-origins="http://localhost:8070" />
+    </mvc:cors>
+
+    <!-- Интерфейс AuthenticationEntryPoint служит для ответа на запрос неатунтифицированного пользователя или клиента.
+        Может быть отдельно реализован для своего поведения, например, редирект на конкретную страницу.
+         По дефолту возвращает 401 ошибку в виде JSON. -->
+
+    <!-- Перехватывает ошибку аутентификации пользователя -->
+    <bean id="oauthAuthenticationEntryPoint"
+          class="org.springframework.security.oauth2.provider.error.OAuth2AuthenticationEntryPoint">
+        <property name="realmName" value="dstest"/>
+    </bean>
+
+    <!-- Перехватывает ошибку аутентификации клиента (приложения, запрашивающего доступ) -->
+    <bean id="clientAuthenticationEntryPoint"
+          class="org.springframework.security.oauth2.provider.error.OAuth2AuthenticationEntryPoint">
+        <property name="realmName" value="dstest/client"/>
+        <property name="typeName" value="Basic"/>
+    </bean>
+
+    <!-- Обработчик ошибки аутентификации -->
+    <bean id="oauthAccessDeniedHandler"
+          class="org.springframework.security.oauth2.provider.error.OAuth2AccessDeniedHandler"/>
+
+    <!-- Фильтр, аутентифицирующий клиентов через параметры запроса, вставляемый после BASIC_AUTH_FILTER -->
+    <bean id="clientCredentialsTokenEndpointFilter"
+          class="org.springframework.security.oauth2.provider.client.ClientCredentialsTokenEndpointFilter">
+        <property name="authenticationManager" ref="clientAuthenticationManager"/>
+    </bean>
+
+    <!-- Менеджер авторизации (предоставляет доступ к защищенным ресурсам в зависимости от ролей пользователей и приложений) -->
+    <bean id="accessDecisionManager" class="org.springframework.security.access.vote.UnanimousBased"
+          xmlns="http://www.springframework.org/schema/beans">
+        <constructor-arg>
+            <list>
+                <bean class="org.springframework.security.oauth2.provider.vote.ScopeVoter"/>
+                <bean class="org.springframework.security.access.vote.RoleVoter"/>
+                <bean class="org.springframework.security.web.access.expression.WebExpressionVoter"/>
+            </list>
+        </constructor-arg>
+    </bean>
+
+    <!-- Менеджер аутентификации для клиентских приложений, которому передается провайдер аутентификации,
+        который в данном случае хранит информацию о клиентах в памяти. -->
+    <authentication-manager id="clientAuthenticationManager" xmlns="http://www.springframework.org/schema/security">
+        <authentication-provider user-service-ref="clientDetailsUserService"/>
+    </authentication-manager>
+
+    <!-- Менеджер аутентификации для пользователей, которому передаются провайдеры аутентификации
+        (ссылка на dataSource для аутентификации с помощью БД) -->
+    <authentication-manager alias="authenticationManager" xmlns="http://www.springframework.org/schema/security">
+        <!-- Используется своя реализация интерфейса UserDetailsService -->
+        <authentication-provider user-service-ref="userDetailsService">
+            <!--<jdbc-user-service data-source-ref="dataSource"-->
+                <!--users-by-username-query="select name, password, enabled from users where name = ?"-->
+                <!--authorities-by-username-query="select u.name, au.authority-->
+                    <!--from users u, authorities au-->
+                    <!--where u.id = au.user_id and u.name = ?"/>-->
+
+            <!--<user-service id="userDetailsService">-->
+                <!--<user name="user" password="password" authorities="ROLE_USER" />-->
+            <!--</user-service>-->
+
+        </authentication-provider>
+    </authentication-manager>
+
+    <!-- Провайдер аутентификации клиентских приложений -->
+    <bean id="clientDetailsUserService"
+          class="org.springframework.security.oauth2.provider.client.ClientDetailsUserDetailsService">
+        <constructor-arg ref="clientDetails"/>
+    </bean>
+
+    <!-- Хранилище выдаваемых токенов  -->
+    <bean id="tokenStore" class="org.springframework.security.oauth2.provider.token.store.InMemoryTokenStore" />
+
+    <!-- Сервис, создающий токены -->
+    <bean id="tokenServices" class="org.springframework.security.oauth2.provider.token.DefaultTokenServices">
+        <property name="tokenStore" ref="tokenStore"/>
+        <property name="supportRefreshToken" value="true"/>
+        <property name="clientDetailsService" ref="clientDetails"/>
+        <!-- Длительность валидности токена по дефолту (если не определена в информации о клиенте) -->
+        <property name="accessTokenValiditySeconds" value="10"/>
+    </bean>
+
+    <bean id="userApprovalHandler" class="org.springframework.security.oauth2.provider.approval.TokenStoreUserApprovalHandler">
+        <property name="clientDetailsService" ref="clientDetails" />
+        <property name="tokenStore" ref="tokenStore"/>
+        <property name="requestFactory" ref="requestFactory"/>
+        <!-- requestFactory -->
+    </bean>
+
+    <bean id="requestFactory" class="org.springframework.security.oauth2.provider.request.DefaultOAuth2RequestFactory">
+        <constructor-arg name="clientDetailsService" ref="clientDetails"/>
+    </bean>
+
+    <!-- Token management -->
+    <oauth:authorization-server client-details-service-ref="clientDetails" token-services-ref="tokenServices"
+                                user-approval-handler-ref="userApprovalHandler">
+        <!-- Способы авторизации -->
+        <!-- Включает поддержку refresh-token, который предоставляется клиенту для получения
+            с его помощью access tokens без необходимости вводить логины и пароли. -->
+        <oauth:refresh-token/>
+        <!-- grant type password служит для получения access tokens с помощью паролей и логинов клиента и пользователя -->
+        <oauth:password/>
+        <!-- Код, который использует браузер для получения access-tokens и авторизации клиента на сервере авторизации -->
+        <!--<oauth:authorization-code/>-->
+        <!--<oauth:implicit/>-->
+        <!--<oauth:client-credentials/>-->
+    </oauth:authorization-server>
+
+    <!-- Настройка сервера с защищенными ресурсами.
+        Здесь создается еще один фильтр, который занимается проверкой токенов для ограничения доступа к ресурсам.-->
+    <oauth:resource-server id="resourceServerFilter"
+                           resource-id="dstest"
+                           token-services-ref="tokenServices"/>
+
+    <!-- Объявление клиентских приложений -->
+    <oauth:client-details-service id="clientDetails">
+
+        <!-- client-id - login клиентского приложения (client_id в запросе)
+             secret - password клиентского приложения (client_secret в запросе)
+             authorized-grant-types - действия, которые может совершать клиент
+             authorities - права доступа
+             redirect-uri - путь, на который происходит редирект после аутентификации пользователя
+             scope - права, предоставляемые клиенту
+
+             password,authorization_code,refresh_token,implicit,redirect
+
+             read,write,trust
+
+             -->
+        <oauth:client client-id="my-trusted-client"
+                      secret="trust"
+                      authorized-grant-types="password,refresh_token"
+                      authorities="ROLE_CLIENT, ROLE_TRUSTED_CLIENT"
+                      redirect-uri="/web"
+                      scope="read,write,trust"
+                      access-token-validity="30"
+                      refresh-token-validity="600"/>
+
+    </oauth:client-details-service>
+
+
+    <sec:global-method-security pre-post-annotations="enabled" proxy-target-class="true">
+        <sec:expression-handler ref="oauthExpressionHandler"/>
+    </sec:global-method-security>
+    <oauth:expression-handler id="oauthExpressionHandler"/>
+    <oauth:web-expression-handler id="oauthWebExpressionHandler"/>
+
+</beans>
