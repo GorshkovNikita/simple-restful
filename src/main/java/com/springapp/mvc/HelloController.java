@@ -67,7 +67,7 @@ public class HelloController {
         return serviceDAO.getAllUserPosts(user.getId());
     }
 
-    @RequestMapping(value = "service/current-user", method = RequestMethod.GET, produces = "application/json;" +
+    @RequestMapping(value = "service/me", method = RequestMethod.GET, produces = "application/json;" +
         "charset=UTF-8")
     @ResponseBody
     public User getCurrentUser(@AuthenticationPrincipal User user) {
