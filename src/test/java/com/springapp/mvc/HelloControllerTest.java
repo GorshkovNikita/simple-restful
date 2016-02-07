@@ -17,8 +17,8 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @WebAppConfiguration
-@ContextConfiguration("file:src/main/webapp/WEB-INF/mvc-dispatcher-servlet.xml")
-public class AppTests {
+@ContextConfiguration("file:src/main/webapp/WEB-INF/test-configuration.xml")
+public class HelloControllerTest {
     private MockMvc mockMvc;
 
     @SuppressWarnings("SpringJavaAutowiringInspection")
@@ -33,7 +33,6 @@ public class AppTests {
     @Test
     public void simple() throws Exception {
         mockMvc.perform(get("/"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("hello"));
+                .andExpect(status().isOk());
     }
 }
