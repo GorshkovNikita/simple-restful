@@ -116,6 +116,19 @@
     <build>
         <finalName>simple-restful</finalName>
         <plugins>
+            <plugin>
+                <groupId>org.apache.tomcat.maven</groupId>
+                <artifactId>tomcat7-maven-plugin</artifactId>
+                <version>2.2</version>
+                <configuration>
+                    <url>http://localhost:8080/manager/text</url>
+                    <!--<username>admin</username>-->
+                    <!--<password>admin</password>-->
+                    <server>apache-tomcat-7.0.67</server>
+                    <!-- По пути path приложение появляется ТОЛЬКО при деплое через tomcat7:deploy -->
+                    <path>/simple-restful</path>
+                </configuration>
+            </plugin>
             <!--<plugin>-->
                 <!--<artifactId>maven-compiler-plugin</artifactId>-->
                 <!--<configuration>-->
@@ -132,18 +145,6 @@
                     <!--</includes>-->
                 <!--</configuration>-->
             <!--</plugin>-->
-            <plugin>
-                <groupId>org.apache.tomcat.maven</groupId>
-                <artifactId>tomcat7-maven-plugin</artifactId>
-                <version>2.2</version>
-                <configuration>
-                    <url>http://localhost:8080/manager</url>
-                    <!--<username>admin</username>-->
-                    <!--<password>admin</password>-->
-                    <server>apache-tomcat-7.0.67</server>
-                    <path>simple-restful</path>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 </project>

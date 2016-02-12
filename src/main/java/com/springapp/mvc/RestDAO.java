@@ -1,5 +1,7 @@
 package com.springapp.mvc;
 
+import com.springapp.mvc.Post;
+import com.springapp.mvc.User;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.util.List;

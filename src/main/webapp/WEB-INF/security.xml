@@ -19,16 +19,16 @@
      1. Запрос на refresh и access tokens через пароли и логины клиента (приложения) и пользователя.
         Как результат выдается refresh-token и access-token. С помощью последнего можно обращаться к ресурсам.
      POST
-     http://localhost:8080/oauth/token?grant_type=password&client_id=my-trusted-client&client_secret=trust&username=user&password=password
+     http://localhost:8080/simple-restful/oauth/token?grant_type=password&client_id=my-trusted-client&client_secret=trust&username=user&password=password
 
      2. Запрос на access token с помощью выданного ранее в запросе 1 refresh token.
      POST
-     http://localhost:8080/oauth/token?grant_type=refresh_token&client_id=my-trusted-client&client_secret=trust&refresh_token=
+     http://localhost:8080/simple-restful/oauth/token?grant_type=refresh_token&client_id=my-trusted-client&client_secret=trust&refresh_token=
 
 
      3. Запрос на ресурсы с помощью access token, выданного в запросе 2.
      GET
-     http://localhost:8080/service/users/1?access_token=
+     http://localhost:8080/simple-restful/service/users/1?access_token=
      -->
 
     <!-- Объявление сервера аутентификации -->
@@ -61,7 +61,7 @@
 
     <!-- Защищенные ресурсы -->
     <!-- create-session - не дает Spring создавать сессии, тк в веб-сервисе это не нужно -->
-    <http pattern="/"
+    <http pattern="/**"
           create-session="never"
           entry-point-ref="oauthAuthenticationEntryPoint"
           access-decision-manager-ref="accessDecisionManager"
@@ -72,7 +72,7 @@
         <!-- Отключение фильтра для анонимных (неутентифицированных) запросов -->
         <anonymous enabled="false"/>
 
-        <intercept-url pattern="/" access="hasRole('ROLE_USER')"/>
+        <intercept-url pattern="/**" access="hasRole('ROLE_USER')"/>
 
         <!-- Фильтр, вставляемый перед фильтром PRE_AUTH_FILTER.
             Этот фильтр занимается проверкой токенов для ограничения доступа к ресурсам. -->
