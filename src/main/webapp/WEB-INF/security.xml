@@ -61,7 +61,7 @@
 
     <!-- Защищенные ресурсы -->
     <!-- create-session - не дает Spring создавать сессии, тк в веб-сервисе это не нужно -->
-    <http pattern="/**"
+    <http pattern="/service/**"
           create-session="never"
           entry-point-ref="oauthAuthenticationEntryPoint"
           access-decision-manager-ref="accessDecisionManager"

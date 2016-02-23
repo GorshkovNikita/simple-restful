@@ -6,6 +6,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Controller
@@ -18,6 +19,15 @@ public class HelloController {
     public String home(Model model) {
         model.addAttribute("message", "Hello!");
         return "hello";
+    }
+
+    @RequestMapping(value = "/test", method = RequestMethod.GET, produces = "application/json;charset=UTF-8")
+    @ResponseBody
+    public ArrayList<Object> test() {
+        ArrayList<Object> arrayList = new ArrayList<>();
+        arrayList.add(serviceDAO.getUserByID(1));
+        arrayList.add(serviceDAO.getPostByID(5));
+        return arrayList;
     }
 
     @RequestMapping(value = "/service/users", method = RequestMethod.GET, produces = "application/json;charset=UTF-8")
